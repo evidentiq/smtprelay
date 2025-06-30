@@ -5,3 +5,4 @@ smtprelay.log
 !smtprelay.ini
 .idea
 *.out
+smtpcreds.yml

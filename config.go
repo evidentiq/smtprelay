@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -11,6 +13,13 @@ import (
 
 	"github.com/vharitonsky/iniflags"
 )
+
+type SmtpCredentials struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Server   string `yaml:"server"`
+	Port     int    `yaml:"port"`
+}
 
 //nolint:govet
 type config struct {
@@ -44,6 +53,7 @@ type config struct {
 
 	allowedNets []*net.IPNet
 	logHeaders  map[string]string
+	credentials map[string]SmtpCredentials
 }
 
 func setupAllowedNetworks(s string) ([]*net.IPNet, error) {
@@ -70,6 +80,7 @@ func setupAllowedNetworks(s string) ([]*net.IPNet, error) {
 func loadConfig() (*config, error) {
 	cfg := config{}
 	registerFlags(flag.CommandLine, &cfg)
+	loadCredentials(&cfg)
 
 	iniflags.Parse()
 
@@ -97,6 +108,39 @@ func loadConfig() (*config, error) {
 	cfg.logHeaders = parseLogHeaders(cfg.logHeadersStr)
 
 	return &cfg, nil
+}
+
+func loadCredentials(c *config) {
+	fileHandle, err := os.Open("smtpcreds.yml")
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Error("smtpcreds.yml not found, skipping credentials loading")
+			os.Exit(-1)
+		}
+		slog.Error("error opening smtpcreds.yml", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer func(fileHandle *os.File) {
+		err := fileHandle.Close()
+		if err != nil {
+			slog.Error("error closing smtpcreds.yml file", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}(fileHandle)
+
+	data, err := io.ReadAll(fileHandle)
+	if err != nil {
+		slog.Error("error reading smtpcreds.yml", slog.Any("error", err))
+		os.Exit(1)
+	}
+	var creds map[string]SmtpCredentials
+	err = yaml.Unmarshal(data, &creds)
+	if err != nil {
+		slog.Error("error unmarshalling smtpcreds.yml", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	c.credentials = creds
 }
 
 func registerFlags(f *flag.FlagSet, cfg *config) {
@@ -149,4 +193,19 @@ func parseLogHeaders(s string) map[string]string {
 	}
 
 	return h
+}
+
+func (s *config) GetSmtpCredentials(sender string) SmtpCredentials {
+	// if sender is not set, return empty credentials
+	if sender == "" {
+		return s.credentials["default"]
+	}
+
+	// if sender is not in credentials, return empty credentials
+	if creds, ok := s.credentials[sender]; ok {
+		return creds
+	}
+
+	// if sender is not in credentials, return empty credentials
+	return s.credentials["default"]
 }

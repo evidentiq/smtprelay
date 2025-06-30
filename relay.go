@@ -291,24 +291,24 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 
 		logger := slog.With(slog.String("component", "mail_handler"), slog.String("uuid", uniqueID))
 
+		credentials := cfg.GetSmtpCredentials(env.Sender)
 		// parse headers from data if we need to log any of them
 		var err error
 		deliveryLog := logger.With(
 			slog.String("from", env.Sender),
 			slog.Any("to", env.Recipients),
-			slog.String("host", cfg.remoteHost),
+			slog.String("host", fmt.Sprintf("%s:%d", credentials.Server, credentials.Port)),
 		)
 		deliveryLog = addLogHeaderFields(cfg.logHeaders, deliveryLog, env.Header)
 
 		deliveryLog.InfoContext(ctx, "delivering mail from peer using smarthost")
 
 		var auth smtp.Auth
-		host, _, _ := net.SplitHostPort(cfg.remoteHost)
 
-		if cfg.remoteUser != "" && cfg.remotePass != "" {
+		if credentials.Username != "" && credentials.Password != "" {
 			switch cfg.remoteAuth {
 			case "plain":
-				auth = smtp.PlainAuth("", cfg.remoteUser, cfg.remotePass, host)
+				auth = smtp.PlainAuth("", credentials.Username, credentials.Password, credentials.Server)
 			default:
 				return observeErr(ctx, smtpd.ErrUnsupportedAuthMethod)
 			}
@@ -337,7 +337,7 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 		}()
 
 		err = smtp.SendMail(
-			cfg.remoteHost,
+			fmt.Sprintf("%s:%d", credentials.Server, credentials.Port),
 			auth,
 			sender,
 			env.Recipients,
