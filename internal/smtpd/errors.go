@@ -9,6 +9,7 @@ var (
 	ErrRecipientInvalid  = &textproto.Error{Code: 451, Msg: "Invalid recipient address"}
 	ErrSenderDenied      = &textproto.Error{Code: 451, Msg: "sender address not allowed"}
 	ErrTooManyRecipients = &textproto.Error{Code: 452, Msg: "Too many recipients"}
+	ErrRateLimitExceeded = &textproto.Error{Code: 454, Msg: "Rate limit exceeded. Try again later."}
 
 	ErrLineTooLong           = &textproto.Error{Code: 500, Msg: "Line too long"}
 	ErrDuplicateMAIL         = &textproto.Error{Code: 502, Msg: "Duplicate MAIL"}

@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/google/uuid"
 	"github.com/grafana/smtprelay/v2/internal/smtpd"
 	"github.com/grafana/smtprelay/v2/internal/traceutil"
@@ -27,12 +29,21 @@ import (
 type relay struct {
 	server *smtpd.Server
 
-	cfg *config
+	cfg     *config
+	limiter *rate.Limiter
 }
 
 func newRelay(cfg *config) (*relay, error) {
 	r := &relay{
 		cfg: cfg,
+	}
+	slog.InfoContext(nil, "starting SMTP relay",
+		slog.Int("rate_limit_max_per_second", cfg.rateLimitMaxPerSecond),
+	)
+	if cfg.rateLimitMaxPerSecond == 0 {
+		r.limiter = rate.NewLimiter(rate.Inf, 1)
+	} else {
+		r.limiter = rate.NewLimiter(rate.Limit(cfg.rateLimitMaxPerSecond), 1)
 	}
 
 	r.server = &smtpd.Server{
@@ -336,6 +347,9 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 			observeDuration(ctx, statusCode, time.Since(start))
 		}()
 
+		if err := r.limiter.Wait(ctx); err != nil {
+			return observeErr(ctx, smtpd.ErrBusy)
+		}
 		err = smtp.SendMail(
 			cfg.remoteHost,
 			auth,
