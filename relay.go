@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	_auth "github.com/evidentiq/smtprelay/v2/internal/auth"
 	"log/slog"
 	"net"
 	"net/smtp"
@@ -306,9 +307,16 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 		var auth smtp.Auth
 
 		if credentials.Username != "" && credentials.Password != "" {
-			switch cfg.remoteAuth {
+			authType := "plain"
+			if strings.Contains(credentials.Server, "outlook") ||
+				strings.Contains(credentials.Server, "office") {
+				authType = "login"
+			}
+			switch authType {
 			case "plain":
 				auth = smtp.PlainAuth("", credentials.Username, credentials.Password, credentials.Server)
+			case "login":
+				auth = _auth.LoginAuth(credentials.Username, credentials.Password)
 			default:
 				return observeErr(ctx, smtpd.ErrUnsupportedAuthMethod)
 			}
