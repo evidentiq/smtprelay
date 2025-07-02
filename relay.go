@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	_auth "github.com/evidentiq/smtprelay/v2/internal/auth"
 	"log/slog"
 	"net"
 	"net/smtp"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	_auth "github.com/evidentiq/smtprelay/v2/internal/auth"
 
 	"github.com/evidentiq/smtprelay/v2/internal/smtpd"
 	"github.com/evidentiq/smtprelay/v2/internal/traceutil"

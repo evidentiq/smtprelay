@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io"
 	"log/slog"
 	"net"
 	"os"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/vharitonsky/iniflags"
 )
