@@ -292,7 +292,7 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 
 		logger := slog.With(slog.String("component", "mail_handler"), slog.String("uuid", uniqueID))
 
-		credentials := cfg.GetSmtpCredentials(env.Sender)
+		credentials := cfg.GetSMTPCredentials(env.Sender)
 		// parse headers from data if we need to log any of them
 		var err error
 		deliveryLog := logger.With(

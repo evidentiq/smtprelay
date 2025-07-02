@@ -1,5 +1,6 @@
-﻿// https://gist.github.com/homme/22b457eb054a07e7b2fb
 package auth
+
+// https://gist.github.com/homme/22b457eb054a07e7b2fb
 
 import (
 	"errors"

@@ -14,7 +14,7 @@ import (
 	"github.com/vharitonsky/iniflags"
 )
 
-type SmtpCredentials struct {
+type SMTPCredentials struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Server   string `yaml:"server"`
@@ -53,7 +53,7 @@ type config struct {
 
 	allowedNets []*net.IPNet
 	logHeaders  map[string]string
-	credentials map[string]SmtpCredentials
+	credentials map[string]SMTPCredentials
 }
 
 func setupAllowedNetworks(s string) ([]*net.IPNet, error) {
@@ -80,7 +80,9 @@ func setupAllowedNetworks(s string) ([]*net.IPNet, error) {
 func loadConfig() (*config, error) {
 	cfg := config{}
 	registerFlags(flag.CommandLine, &cfg)
-	loadCredentials(&cfg)
+	if err := loadCredentials(&cfg); err != nil {
+		return nil, fmt.Errorf("loadCredentials: %w", err)
+	}
 
 	iniflags.Parse()
 
@@ -110,37 +112,30 @@ func loadConfig() (*config, error) {
 	return &cfg, nil
 }
 
-func loadCredentials(c *config) {
+func loadCredentials(c *config) error {
 	fileHandle, err := os.Open("smtpcreds.yml")
 	if err != nil {
-		if os.IsNotExist(err) {
-			slog.Error("smtpcreds.yml not found, skipping credentials loading")
-			os.Exit(-1)
-		}
-		slog.Error("error opening smtpcreds.yml", slog.Any("error", err))
-		os.Exit(1)
+		return err
 	}
 	defer func(fileHandle *os.File) {
-		err := fileHandle.Close()
+		err = fileHandle.Close()
 		if err != nil {
 			slog.Error("error closing smtpcreds.yml file", slog.Any("error", err))
-			os.Exit(1)
 		}
 	}(fileHandle)
 
 	data, err := io.ReadAll(fileHandle)
 	if err != nil {
-		slog.Error("error reading smtpcreds.yml", slog.Any("error", err))
-		os.Exit(1)
+		return err
 	}
-	var creds map[string]SmtpCredentials
+	var creds map[string]SMTPCredentials
 	err = yaml.Unmarshal(data, &creds)
 	if err != nil {
-		slog.Error("error unmarshalling smtpcreds.yml", slog.Any("error", err))
-		os.Exit(1)
+		return err
 	}
 
 	c.credentials = creds
+	return nil
 }
 
 func registerFlags(f *flag.FlagSet, cfg *config) {
@@ -195,7 +190,7 @@ func parseLogHeaders(s string) map[string]string {
 	return h
 }
 
-func (s *config) GetSmtpCredentials(sender string) SmtpCredentials {
+func (s *config) GetSMTPCredentials(sender string) SMTPCredentials {
 	// if sender is not set, return empty credentials
 	if sender == "" {
 		return s.credentials["default"]
