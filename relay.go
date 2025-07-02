@@ -293,12 +293,13 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 		logger := slog.With(slog.String("component", "mail_handler"), slog.String("uuid", uniqueID))
 
 		credentials := cfg.GetSMTPCredentials(env.Sender)
+		remoteHost := fmt.Sprintf("%s:%d", credentials.Server, credentials.Port)
 		// parse headers from data if we need to log any of them
 		var err error
 		deliveryLog := logger.With(
 			slog.String("from", env.Sender),
 			slog.Any("to", env.Recipients),
-			slog.String("host", fmt.Sprintf("%s:%d", credentials.Server, credentials.Port)),
+			slog.String("host", remoteHost),
 		)
 		deliveryLog = addLogHeaderFields(cfg.logHeaders, deliveryLog, env.Header)
 
@@ -345,7 +346,7 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 		}()
 
 		err = smtp.SendMail(
-			fmt.Sprintf("%s:%d", credentials.Server, credentials.Port),
+			remoteHost,
 			auth,
 			sender,
 			env.Recipients,
