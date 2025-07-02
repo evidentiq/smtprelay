@@ -37,7 +37,7 @@ func newRelay(cfg *config) (*relay, error) {
 	r := &relay{
 		cfg: cfg,
 	}
-	slog.InfoContext(nil, "starting SMTP relay",
+	slog.InfoContext(context.TODO(), "starting SMTP relay",
 		slog.Int("rate_limit_max_per_second", cfg.rateLimitMaxPerSecond),
 	)
 	if cfg.rateLimitMaxPerSecond == 0 {
@@ -347,7 +347,7 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 			observeDuration(ctx, statusCode, time.Since(start))
 		}()
 
-		if err := r.limiter.Wait(ctx); err != nil {
+		if err = r.limiter.Wait(ctx); err != nil {
 			return observeErr(ctx, smtpd.ErrBusy)
 		}
 		err = smtp.SendMail(
