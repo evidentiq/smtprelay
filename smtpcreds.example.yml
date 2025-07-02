@@ -1,0 +1,10 @@
+﻿smtp_relay@fortressmedical.com:
+  server: email-smtp.us-east-2.amazonaws.com
+  port: 587
+  username:
+  password:
+clindex-noreply@clindexlive.com:
+  server: email-smtp.us-east-1.amazonaws.com
+  port: 587
+  username:
+  password:

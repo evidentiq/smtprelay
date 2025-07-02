@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/smtp"
 	"net/textproto"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -99,11 +100,20 @@ func startRelay(ctx context.Context, t *testing.T, srvAddr string) string {
 	go func() {
 		metricsRegistry = prometheus.NewRegistry()
 
+		host, portStr, _ := net.SplitHostPort(srvAddr)
+		port, _ := strconv.Atoi(portStr)
+
 		cfg := &config{
 			listen:        addr,
 			metricsListen: "127.0.0.1:0",
 			remoteHost:    srvAddr,
 			logLevel:      "debug",
+			credentials: map[string]SMTPCredentials{
+				"default": {
+					Server: host,
+					Port:   port,
+				},
+			},
 		}
 
 		_ = run(ctx, cfg)
