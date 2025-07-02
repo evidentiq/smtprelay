@@ -316,7 +316,7 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 			case "plain":
 				auth = smtp.PlainAuth("", credentials.Username, credentials.Password, credentials.Server)
 			case "login":
-				auth = _auth.LoginAuth(credentials.Username, credentials.Password)
+				auth = _auth.LoginAuth(credentials.Username, credentials.Password, credentials.Server)
 			default:
 				return observeErr(ctx, smtpd.ErrUnsupportedAuthMethod)
 			}
