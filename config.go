@@ -3,14 +3,24 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/vharitonsky/iniflags"
 )
+
+type SMTPCredentials struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Server   string `yaml:"server"`
+	Port     int    `yaml:"port"`
+}
 
 //nolint:govet
 type config struct {
@@ -44,6 +54,7 @@ type config struct {
 
 	allowedNets []*net.IPNet
 	logHeaders  map[string]string
+	credentials map[string]SMTPCredentials
 }
 
 func setupAllowedNetworks(s string) ([]*net.IPNet, error) {
@@ -70,6 +81,9 @@ func setupAllowedNetworks(s string) ([]*net.IPNet, error) {
 func loadConfig() (*config, error) {
 	cfg := config{}
 	registerFlags(flag.CommandLine, &cfg)
+	if err := loadCredentials(&cfg); err != nil {
+		return nil, fmt.Errorf("loadCredentials: %w", err)
+	}
 
 	iniflags.Parse()
 
@@ -97,6 +111,32 @@ func loadConfig() (*config, error) {
 	cfg.logHeaders = parseLogHeaders(cfg.logHeadersStr)
 
 	return &cfg, nil
+}
+
+func loadCredentials(c *config) error {
+	fileHandle, err := os.Open("smtpcreds.yml")
+	if err != nil {
+		return err
+	}
+	defer func(fileHandle *os.File) {
+		err = fileHandle.Close()
+		if err != nil {
+			slog.Error("error closing smtpcreds.yml file", slog.Any("error", err))
+		}
+	}(fileHandle)
+
+	data, err := io.ReadAll(fileHandle)
+	if err != nil {
+		return err
+	}
+	var creds map[string]SMTPCredentials
+	err = yaml.Unmarshal(data, &creds)
+	if err != nil {
+		return err
+	}
+
+	c.credentials = creds
+	return nil
 }
 
 func registerFlags(f *flag.FlagSet, cfg *config) {
@@ -149,4 +189,19 @@ func parseLogHeaders(s string) map[string]string {
 	}
 
 	return h
+}
+
+func (s *config) GetSMTPCredentials(sender string) SMTPCredentials {
+	// if sender is not set, return empty credentials
+	if sender == "" {
+		return s.credentials["default"]
+	}
+
+	// if sender is not in credentials, return empty credentials
+	if creds, ok := s.credentials[sender]; ok {
+		return creds
+	}
+
+	// if sender is not in credentials, return empty credentials
+	return s.credentials["default"]
 }

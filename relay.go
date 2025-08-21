@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	_auth "github.com/evidentiq/smtprelay/v2/internal/auth"
+
 	"github.com/evidentiq/smtprelay/v2/internal/smtpd"
 	"github.com/evidentiq/smtprelay/v2/internal/traceutil"
 	"github.com/google/uuid"
@@ -291,24 +293,32 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 
 		logger := slog.With(slog.String("component", "mail_handler"), slog.String("uuid", uniqueID))
 
+		credentials := cfg.GetSMTPCredentials(env.Sender)
+		remoteHost := fmt.Sprintf("%s:%d", credentials.Server, credentials.Port)
 		// parse headers from data if we need to log any of them
 		var err error
 		deliveryLog := logger.With(
 			slog.String("from", env.Sender),
 			slog.Any("to", env.Recipients),
-			slog.String("host", cfg.remoteHost),
+			slog.String("host", remoteHost),
 		)
 		deliveryLog = addLogHeaderFields(cfg.logHeaders, deliveryLog, env.Header)
 
 		deliveryLog.InfoContext(ctx, "delivering mail from peer using smarthost")
 
 		var auth smtp.Auth
-		host, _, _ := net.SplitHostPort(cfg.remoteHost)
 
-		if cfg.remoteUser != "" && cfg.remotePass != "" {
-			switch cfg.remoteAuth {
+		if credentials.Username != "" && credentials.Password != "" {
+			authType := "plain"
+			if strings.Contains(credentials.Server, "outlook") ||
+				strings.Contains(credentials.Server, "office") {
+				authType = "login"
+			}
+			switch authType {
 			case "plain":
-				auth = smtp.PlainAuth("", cfg.remoteUser, cfg.remotePass, host)
+				auth = smtp.PlainAuth("", credentials.Username, credentials.Password, credentials.Server)
+			case "login":
+				auth = _auth.LoginAuth(credentials.Username, credentials.Password, credentials.Server)
 			default:
 				return observeErr(ctx, smtpd.ErrUnsupportedAuthMethod)
 			}
@@ -337,7 +347,7 @@ func (r *relay) mailHandler(cfg *config) func(ctx context.Context, peer smtpd.Pe
 		}()
 
 		err = smtp.SendMail(
-			cfg.remoteHost,
+			remoteHost,
 			auth,
 			sender,
 			env.Recipients,
